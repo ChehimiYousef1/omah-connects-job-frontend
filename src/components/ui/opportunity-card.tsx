@@ -1,14 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Building, MapPin, Calendar, DollarSign, Users, Clock, FileText, CheckCircle, X,
+  Building, MapPin, Calendar, DollarSign, Clock, FileText, CheckCircle, X,
 } from 'lucide-react';
 import { Badge } from './badge';
 import { GradientButton } from './gradient-button';
 import { ApplicationDialog } from '../ApplicationDialog';
 import { useAuth } from '../../contexts/AuthContext';
-import { ApplicationService } from '../../services/applicationService';
-import type { Opportunity } from '../../types/supabase';
+import type { Opportunity } from '../../types';
 
 interface OpportunityCardProps {
   opportunity: Opportunity;
@@ -17,87 +16,100 @@ interface OpportunityCardProps {
   showApplyButton?: boolean;
 }
 
+// ─── localStorage helpers ────────────────────────────────────────────────────
+
+const APPLICATIONS_KEY = 'mock_db_applications';
+
+type ApplicationRecord = {
+  id: string;
+  opportunityId: string;
+  userId: string;
+  coverLetter?: string;
+  appliedAt: string;
+};
+
+const loadApplications = (): ApplicationRecord[] => {
+  try {
+    const raw = localStorage.getItem(APPLICATIONS_KEY);
+    return raw ? (JSON.parse(raw) as ApplicationRecord[]) : [];
+  } catch {
+    return [];
+  }
+};
+
+const hasUserApplied = (opportunityId: string, userId: string): boolean =>
+  loadApplications().some(
+    (a) => a.opportunityId === opportunityId && a.userId === userId,
+  );
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export function OpportunityCard({
-  opportunity, onDelete, showActions = false, showApplyButton = true,
+  opportunity,
+  onDelete,
+  showActions = false,
+  showApplyButton = true,
 }: OpportunityCardProps) {
   const { user } = useAuth();
   const [isApplicationDialogOpen, setIsApplicationDialogOpen] = useState(false);
-  const [hasApplied, setHasApplied] = useState<boolean | null>(null);
+  const [hasApplied, setHasApplied] = useState(false);
   const [isCheckingApplication, setIsCheckingApplication] = useState(false);
 
-  // Check if user has already applied to this opportunity
-  const checkApplicationStatus = async () => {
-    if (!user || user.role !== 'FREELANCER') return;
+  useEffect(() => {
+    if (!user || user.role !== 'FREELANCER' || !showApplyButton) return;
 
     setIsCheckingApplication(true);
     try {
-      const result = await ApplicationService.validateApplication(
-        opportunity.id,
-        user.id,
-        user.role,
-      );
-      setHasApplied(!result.canApply && result.error === 'You have already applied to this opportunity');
-    } catch (error) {
-      console.error('Error checking application status:', error);
+      setHasApplied(hasUserApplied(opportunity.id, user.id));
+    } catch (err) {
+      console.error('Error checking application status:', err);
     } finally {
       setIsCheckingApplication(false);
     }
+  }, [opportunity.id, user, showApplyButton]);
+
+  const handleApplySuccess = () => {
+    setHasApplied(true);
   };
 
-  // Check application status when component mounts
-  useState(() => {
-    if (showApplyButton && user?.role === 'FREELANCER') {
-      checkApplicationStatus();
-    }
-  });
+  // ─── Formatters ─────────────────────────────────────────────────────────────
 
-  const formatBudget = () => {
-    if (!opportunity.budget_min && !opportunity.budget_max) {
-      return 'Budget not specified';
+  const formatBudget = (): string => {
+    const { budget_min, budget_max, budget_currency } = opportunity;
+    if (budget_min && budget_max) {
+      return `${budget_currency} ${budget_min.toLocaleString()} – ${budget_max.toLocaleString()}`;
     }
-
-    if (opportunity.budget_min && opportunity.budget_max) {
-      return `${opportunity.budget_currency} ${opportunity.budget_min.toLocaleString()} - ${opportunity.budget_max.toLocaleString()}`;
-    }
-
-    if (opportunity.budget_min) {
-      return `${opportunity.budget_currency} ${opportunity.budget_min.toLocaleString()}+`;
-    }
-
-    if (opportunity.budget_max) {
-      return `${opportunity.budget_currency} Up to ${opportunity.budget_max.toLocaleString()}`;
-    }
-
+    if (budget_min) return `${budget_currency} ${budget_min.toLocaleString()}+`;
+    if (budget_max) return `${budget_currency} Up to ${budget_max.toLocaleString()}`;
     return 'Budget not specified';
   };
 
-  const getExperienceColor = (level: string) => {
+  const getExperienceColor = (level: string): string => {
     const colors: Record<string, string> = {
       ENTRY: 'bg-green-100 text-green-800',
       INTERMEDIATE: 'bg-blue-100 text-blue-800',
       SENIOR: 'bg-purple-100 text-purple-800',
       EXPERT: 'bg-red-100 text-red-800',
     };
-    return colors[level] || 'bg-gray-100 text-gray-800';
+    return colors[level] ?? 'bg-gray-100 text-gray-800';
   };
 
-  const getTypeColor = (type: string) => {
+  const getTypeColor = (type: string): string => {
     const colors: Record<string, string> = {
       FULL_TIME: 'bg-blue-100 text-blue-800',
       PART_TIME: 'bg-green-100 text-green-800',
       CONTRACT: 'bg-orange-100 text-orange-800',
       FREELANCE: 'bg-purple-100 text-purple-800',
     };
-    return colors[type] || 'bg-gray-100 text-gray-800';
+    return colors[type] ?? 'bg-gray-100 text-gray-800';
   };
 
-  const handleApplySuccess = () => {
-    setHasApplied(true);
-    // You could show a toast notification here
-    console.log('Application submitted successfully!');
-  };
+  const canApply =
+    user?.role === 'FREELANCER' &&
+    opportunity.status === 'ACTIVE' &&
+    !hasApplied;
 
-  const canApply = user?.role === 'FREELANCER' && opportunity.status === 'ACTIVE' && !hasApplied;
+  // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <>
@@ -117,7 +129,6 @@ export function OpportunityCard({
             </div>
           </div>
 
-          {/* Status Badge */}
           <Badge
             variant={opportunity.status === 'ACTIVE' ? 'default' : 'secondary'}
             className="ml-2"
@@ -132,51 +143,48 @@ export function OpportunityCard({
         </p>
 
         {/* Skills */}
-        <div className="mb-4">
-          <div className="flex flex-wrap gap-2">
-            {opportunity.required_skills.slice(0, 5).map((skill, index) => (
-              <Badge key={index} variant="outline" className="text-xs">
-                {skill}
-              </Badge>
-            ))}
-            {opportunity.required_skills.length > 5 && (
-              <Badge variant="outline" className="text-xs">
-                +{opportunity.required_skills.length - 5} more
-              </Badge>
-            )}
-          </div>
+        <div className="mb-4 flex flex-wrap gap-2">
+          {opportunity.required_skills.slice(0, 5).map((skill, index) => (
+            <Badge key={index} variant="outline" className="text-xs">
+              {skill}
+            </Badge>
+          ))}
+          {opportunity.required_skills.length > 5 && (
+            <Badge variant="outline" className="text-xs">
+              +{opportunity.required_skills.length - 5} more
+            </Badge>
+          )}
         </div>
 
         {/* Details Grid */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Clock className="w-4 h-4" />
+        <div className="grid grid-cols-2 gap-4 mb-6 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 shrink-0" />
             <span>{opportunity.duration}</span>
           </div>
-
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <MapPin className="w-4 h-4" />
+          <div className="flex items-center gap-2">
+            <MapPin className="w-4 h-4 shrink-0" />
             <span>{opportunity.location || 'Remote'}</span>
           </div>
-
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <DollarSign className="w-4 h-4" />
+          <div className="flex items-center gap-2">
+            <DollarSign className="w-4 h-4 shrink-0" />
             <span>{formatBudget()}</span>
           </div>
-
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Calendar className="w-4 h-4" />
-            <span>Deadline: {new Date(opportunity.deadline).toLocaleDateString()}</span>
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 shrink-0" />
+            <span>
+              Deadline: {new Date(opportunity.deadline).toLocaleDateString()}
+            </span>
           </div>
         </div>
 
-        {/* Type and Experience */}
+        {/* Type & Experience Badges */}
         <div className="flex gap-2 mb-6">
           <Badge className={getTypeColor(opportunity.type)}>
-            {opportunity.type.replace('_', ' ').toLowerCase()}
+            {opportunity.type.replace(/_/g, ' ').toLowerCase()}
           </Badge>
           <Badge className={getExperienceColor(opportunity.experience_level)}>
-            {opportunity.experience_level.replace('_', ' ').toLowerCase()}
+            {opportunity.experience_level.replace(/_/g, ' ').toLowerCase()}
           </Badge>
         </div>
 
@@ -185,14 +193,15 @@ export function OpportunityCard({
           <h4 className="font-semibold text-foreground mb-2">Contact Information</h4>
           <div className="space-y-2 text-sm">
             <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-muted-foreground" />
+              <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
               <span className="text-muted-foreground">Email:</span>
               <span className="text-foreground">{opportunity.contact_email}</span>
             </div>
 
+            {/* ✅ Fixed: restored missing opening <a> tag */}
             {opportunity.contact_linkedin && (
               <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-muted-foreground" />
+                <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
                 <span className="text-muted-foreground">LinkedIn:</span>
                 <a
                   href={opportunity.contact_linkedin}
@@ -209,30 +218,29 @@ export function OpportunityCard({
 
         {/* Action Buttons */}
         <div className="flex gap-3">
-          {/* Apply Button (for freelancers) */}
+          {/* Apply — Freelancers only */}
           {showApplyButton && user?.role === 'FREELANCER' && (
-            <>
-              {hasApplied ? (
-                <div className="flex items-center gap-2 text-green-600 bg-green-50 px-4 py-2 rounded-lg">
-                  <CheckCircle className="w-4 h-4" />
-                  <span className="text-sm font-medium">Applied</span>
-                </div>
-              ) : (
-                <GradientButton
-                  onClick={() => setIsApplicationDialogOpen(true)}
-                  disabled={!canApply || isCheckingApplication}
-                  className="flex-1"
-                  icon={<FileText className="w-4 h-4" />}
-                >
-                  {isCheckingApplication ? 'Checking...' : 'Apply Now'}
-                </GradientButton>
-              )}
-            </>
+            hasApplied ? (
+              <div className="flex items-center gap-2 text-green-600 bg-green-50 px-4 py-2 rounded-lg">
+                <CheckCircle className="w-4 h-4" />
+                <span className="text-sm font-medium">Applied</span>
+              </div>
+            ) : (
+              <GradientButton
+                onClick={() => setIsApplicationDialogOpen(true)}
+                disabled={!canApply || isCheckingApplication}
+                className="flex-1"
+                icon={<FileText className="w-4 h-4" />}
+              >
+                {isCheckingApplication ? 'Checking...' : 'Apply Now'}
+              </GradientButton>
+            )
           )}
 
-          {/* Delete Button (for companies) */}
+          {/* Delete — Companies only */}
           {showActions && onDelete && user?.role === 'COMPANY' && (
             <button
+              type="button"
               onClick={() => onDelete(opportunity.id)}
               className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
             >

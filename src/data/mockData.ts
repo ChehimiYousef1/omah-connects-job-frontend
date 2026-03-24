@@ -1,0 +1,77 @@
+export const mockCompanies = [
+  {
+    email: 'hr@techcorp.com',
+    name: 'TechCorp Solutions',
+    role: 'COMPANY',
+    bio: 'Leading technology company specializing in AI and machine learning solutions.',
+    avatar: null,
+  },
+  {
+    email: 'careers@dataflow.com',
+    name: 'DataFlow Analytics',
+    role: 'COMPANY',
+    bio: 'Data science consulting firm helping businesses make data-driven decisions.',
+    avatar: null,
+  },
+  {
+    email: 'jobs@innovateai.com',
+    name: 'InnovateAI',
+    role: 'COMPANY',
+    bio: 'Innovative AI company focused on natural language processing and chatbot development.',
+    avatar: null,
+  },
+];
+
+export const mockOpportunities = [
+  {
+    title: 'Senior AI Engineer',
+    description: 'We are looking for a Senior AI Engineer to join our team and help develop cutting-edge machine learning solutions.',
+    requiredSkills: ['Python', 'TensorFlow', 'Machine Learning', 'AWS', 'Docker'],
+    budget: { min: 80000, max: 120000, currency: 'EUR' },
+    contactInfo: {
+      email: 'hr@techcorp.com',
+      phone: '+49 40 123 456 789',
+      linkedin: 'https://linkedin.com/company/techcorp',
+    },
+    deadline: '2024-12-31',
+    duration: 'Full-time',
+    location: 'Hamburg, Germany',
+    type: 'full-time',
+    experienceLevel: 'senior',
+    companyName: 'TechCorp Solutions',
+  },
+  {
+    title: 'Data Scientist Consultant',
+    description: 'Seeking a Data Scientist to work on client projects involving predictive analytics and statistical modeling.',
+    requiredSkills: ['R', 'Python', 'SQL', 'Tableau', 'Statistics'],
+    budget: { min: 60000, max: 90000, currency: 'EUR' },
+    contactInfo: {
+      email: 'careers@dataflow.com',
+      phone: '+49 30 987 654 321',
+      linkedin: 'https://linkedin.com/company/dataflow',
+    },
+    deadline: '2024-11-30',
+    duration: 'Contract (6 months)',
+    location: 'Berlin, Germany',
+    type: 'contract',
+    experienceLevel: 'intermediate',
+    companyName: 'DataFlow Analytics',
+  },
+  {
+    title: 'NLP Specialist',
+    description: 'Join our NLP team to develop advanced language processing models and chatbot solutions.',
+    requiredSkills: ['NLP', 'PyTorch', 'Transformers', 'BERT', 'ChatGPT API'],
+    budget: { min: 70000, max: 110000, currency: 'EUR' },
+    contactInfo: {
+      email: 'jobs@innovateai.com',
+      phone: '+49 89 456 789 123',
+      linkedin: 'https://linkedin.com/company/innovateai',
+    },
+    deadline: '2024-12-15',
+    duration: 'Full-time',
+    location: 'Munich, Germany',
+    type: 'full-time',
+    experienceLevel: 'senior',
+    companyName: 'InnovateAI',
+  },
+];
